@@ -1,4 +1,5 @@
 import { Instagram } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export function Footer() {
   const whatsappLink = "https://wa.me/381611234567"; // Placeholder
@@ -27,7 +28,24 @@ export function Footer() {
           {/* Quick Info Section */}
           <div className="space-y-4">
             <h4 className="font-semibold text-foreground">Informacije</h4>
-            <p className="text-sm text-muted-foreground">
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li>
+                <Link to="/uslovi-koriscenja" className="hover:text-foreground transition-colors">
+                  Uslovi korišćenja
+                </Link>
+              </li>
+              <li>
+                <Link to="/politika-privatnosti" className="hover:text-foreground transition-colors">
+                  Politika privatnosti
+                </Link>
+              </li>
+              <li>
+                <Link to="/provera" className="hover:text-foreground transition-colors">
+                  Status porudžbine
+                </Link>
+              </li>
+            </ul>
+            <p className="text-sm text-muted-foreground pt-2 border-t border-border mt-2">
               Zamena veličine je moguća u roku od 48h od prijema paketa.
             </p>
           </div>

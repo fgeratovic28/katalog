@@ -27,6 +27,57 @@ export function CartDrawer() {
     phone: "",
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  const validateEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
+  const validatePhone = (phone: string) => {
+    return /^\+?[0-9]{9,}$/.test(phone);
+  };
+
+  const validateField = (name: string, value: string) => {
+    if (!value.trim()) {
+      return "Ovo polje je obavezno";
+    }
+    
+    if (name === "email" && !validateEmail(value)) {
+      return "Neispravna email adresa";
+    }
+
+    if (name === "phone" && !validatePhone(value)) {
+      return "Neispravan broj telefona (min 9 cifara)";
+    }
+
+    return "";
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setTouched(prev => ({ ...prev, [name]: true }));
+    const error = validateField(name, value);
+    setErrors(prev => ({ ...prev, [name]: error }));
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    if (touched[name]) {
+      const error = validateField(name, value);
+      setErrors(prev => ({ ...prev, [name]: error }));
+    }
+  };
+
+  const isFormValid = () => {
+    const requiredFields = ['firstName', 'lastName', 'email', 'address', 'city', 'phone'];
+    const hasEmptyFields = requiredFields.some(field => !formData[field as keyof CustomerInfo].trim());
+    const hasErrors = Object.values(errors).some(error => error !== "");
+    return !hasEmptyFields && !hasErrors;
+  };
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("sr-RS").format(price) + " RSD";
   };
@@ -34,23 +85,24 @@ export function CartDrawer() {
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validation
-    const requiredFields = [
-      { key: 'firstName', label: 'Ime' },
-      { key: 'lastName', label: 'Prezime' },
-      { key: 'email', label: 'E-mail adresa' },
-      { key: 'address', label: 'Adresa' },
-      { key: 'city', label: 'Grad' },
-      { key: 'postalCode', label: 'Poštanski broj' },
-      { key: 'phone', label: 'Broj telefona' },
-    ];
+    // Validate all fields
+    const newErrors: Record<string, string> = {};
+    const requiredFields = ['firstName', 'lastName', 'email', 'address', 'city', 'phone'];
+    
+    requiredFields.forEach(field => {
+      const error = validateField(field, formData[field as keyof CustomerInfo]);
+      if (error) {
+        newErrors[field] = error;
+      }
+    });
 
-    const missingFields = requiredFields.filter(field => !formData[field.key as keyof CustomerInfo]);
+    setErrors(newErrors);
+    setTouched(requiredFields.reduce((acc, field) => ({ ...acc, [field]: true }), {}));
 
-    if (missingFields.length > 0) {
+    if (Object.keys(newErrors).length > 0) {
       toast({
-        title: "Nedostaju podaci",
-        description: `Molimo Vas popunite obavezna polja: ${missingFields.map(f => f.label).join(', ')}`,
+        title: "Greška u formi",
+        description: "Molimo Vas ispravite greške pre slanja porudžbine.",
         variant: "destructive",
         duration: 3000,
       });
@@ -208,22 +260,32 @@ export function CartDrawer() {
                 <form onSubmit={handleSubmitOrder} className="space-y-4" noValidate>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Ime</label>
+                      <label className="text-sm font-medium">Ime <span className="text-destructive">*</span></label>
                       <input
                         type="text"
+                        name="firstName"
                         value={formData.firstName}
-                        onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                        className="w-full px-4 py-3 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        className={`w-full px-4 py-3 bg-input border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                          errors.firstName ? "border-destructive focus:ring-destructive/50" : "border-border"
+                        }`}
                       />
+                      {errors.firstName && <p className="text-destructive text-xs">{errors.firstName}</p>}
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Prezime</label>
+                      <label className="text-sm font-medium">Prezime <span className="text-destructive">*</span></label>
                       <input
                         type="text"
+                        name="lastName"
                         value={formData.lastName}
-                        onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                        className="w-full px-4 py-3 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        className={`w-full px-4 py-3 bg-input border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                          errors.lastName ? "border-destructive focus:ring-destructive/50" : "border-border"
+                        }`}
                       />
+                      {errors.lastName && <p className="text-destructive text-xs">{errors.lastName}</p>}
                     </div>
                   </div>
 
@@ -231,50 +293,72 @@ export function CartDrawer() {
                     <label className="text-sm font-medium">E-mail adresa <span className="text-destructive">*</span></label>
                     <input
                       type="email"
+                      name="email"
                       value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full px-4 py-3 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      className={`w-full px-4 py-3 bg-input border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                        errors.email ? "border-destructive focus:ring-destructive/50" : "border-border"
+                      }`}
                       placeholder="vasa@adresa.com"
                     />
+                    {errors.email && <p className="text-destructive text-xs">{errors.email}</p>}
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Adresa</label>
+                    <label className="text-sm font-medium">Adresa <span className="text-destructive">*</span></label>
                     <input
                       type="text"
+                      name="address"
                       value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                      className="w-full px-4 py-3 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      className={`w-full px-4 py-3 bg-input border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                        errors.address ? "border-destructive focus:ring-destructive/50" : "border-border"
+                      }`}
                     />
+                    {errors.address && <p className="text-destructive text-xs">{errors.address}</p>}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Grad</label>
+                      <label className="text-sm font-medium">Grad <span className="text-destructive">*</span></label>
                       <input
                         type="text"
+                        name="city"
                         value={formData.city}
-                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                        className="w-full px-4 py-3 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        className={`w-full px-4 py-3 bg-input border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                          errors.city ? "border-destructive focus:ring-destructive/50" : "border-border"
+                        }`}
                       />
+                      {errors.city && <p className="text-destructive text-xs">{errors.city}</p>}
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Poštanski broj</label>
                       <input
                         type="text"
+                        name="postalCode"
                         value={formData.postalCode}
-                        onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
                         className="w-full px-4 py-3 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Broj telefona</label>
+                    <label className="text-sm font-medium">Broj telefona <span className="text-destructive">*</span></label>
                     <input
                       type="tel"
+                      name="phone"
                       value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full px-4 py-3 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      className={`w-full px-4 py-3 bg-input border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 ${
+                        errors.phone ? "border-destructive focus:ring-destructive/50" : "border-border"
+                      }`}
                     />
+                    {errors.phone && <p className="text-destructive text-xs">{errors.phone}</p>}
                   </div>
  
                    <div className="pt-4 border-t border-border">
@@ -284,9 +368,9 @@ export function CartDrawer() {
                      </div>
                      <motion.button
                       type="submit"
-                      disabled={isSubmitting}
-                      whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
-                      whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
+                      disabled={isSubmitting || !isFormValid()}
+                      whileHover={{ scale: (isSubmitting || !isFormValid()) ? 1 : 1.02 }}
+                      whileTap={{ scale: (isSubmitting || !isFormValid()) ? 1 : 0.98 }}
                       className="w-full py-4 gold-gradient rounded-lg font-semibold text-primary-foreground shadow-gold disabled:opacity-70 disabled:cursor-not-allowed"
                     >
                       {isSubmitting ? (
