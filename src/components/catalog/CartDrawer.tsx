@@ -129,7 +129,12 @@ export function CartDrawer() {
       // 1. Send confirmation email
       const orderId = orderResponse?.[0]?.id || "N/A";
       const orderCode = orderResponse?.[0]?.order_code || orderId;
-      const trackingLink = `${window.location.origin}/provera?id=${orderCode}`;
+      const editToken = orderResponse?.[0]?.edit_token;
+
+      // Use token link if available (Magic Link), otherwise fallback to ID
+      const trackingLink = editToken 
+        ? `${window.location.origin}/provera?token=${editToken}`
+        : `${window.location.origin}/provera?id=${orderCode}`;
 
       const emailParams = {
         id_porudzbine: orderCode,

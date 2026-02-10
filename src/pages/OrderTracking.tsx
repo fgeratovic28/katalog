@@ -2,11 +2,14 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
-import { Search, Package, CheckCircle2, Clock, Truck, Home } from "lucide-react";
+import { Search, Package, Clock, Truck, Home, Edit, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { SEO } from "@/components/SEO";
+import { useToast } from "@/hooks/use-toast";
 
 const STEPS = [
   { id: "Primljeno", label: "Primljeno", icon: Package, description: "Porudžbina je primljena" },
@@ -22,29 +25,55 @@ export default function OrderTracking() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orderDate, setOrderDate] = useState<string | null>(null);
+  
+  // Edit State
+  const [canEdit, setCanEdit] = useState(false);
+  const [editToken, setEditToken] = useState<string | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [orderData, setOrderData] = useState<any>(null);
+  const [editFormData, setEditFormData] = useState({
+    ime_kupca: "",
+    email_kupca: "",
+    adresa_kupca: "",
+    grad_kupca: "",
+    postanski_broj_kupca: "",
+    telefon_kupca: ""
+  });
+
+  const { toast } = useToast();
 
   useEffect(() => {
     const idFromUrl = searchParams.get("id");
-    if (idFromUrl) {
+    const tokenFromUrl = searchParams.get("token");
+    
+    if (tokenFromUrl) {
+      setEditToken(tokenFromUrl);
+      checkStatus(tokenFromUrl, tokenFromUrl);
+    } else if (idFromUrl) {
       setOrderId(idFromUrl);
       checkStatus(idFromUrl);
     }
   }, [searchParams]);
 
-  const checkStatus = async (id: string) => {
-    if (!id.trim()) return;
+  const checkStatus = async (query: string, token?: string) => {
+    if (!query.trim()) return;
     
     setLoading(true);
     setError(null);
     setStatus(null);
+    setCanEdit(false);
 
     try {
-      const { data, error } = await supabase.rpc('get_order_status', { p_query: id });
+      const { data, error } = await supabase.rpc('get_order_status', { 
+        p_query: query,
+        p_token: token || null
+      });
 
       if (error) throw error;
 
       if (!data) {
-        setError("Porudžbina sa ovim kodom nije pronađena.");
+        setError("Porudžbina nije pronađena.");
       } else {
         // Map legacy 'novo' to 'Primljeno'
         let currentStatus = data.status;
@@ -52,10 +81,31 @@ export default function OrderTracking() {
         
         setStatus(currentStatus);
         setOrderDate(new Date(data.created_at).toLocaleDateString("sr-RS"));
+        setOrderData(data);
+        
+        // Update input field with found order code if it wasn't typed
+        if (data.order_code) {
+           setOrderId(data.order_code);
+        }
+
+        if (data.can_edit) {
+          setCanEdit(true);
+          // Pre-fill form
+          setEditFormData({
+            ime_kupca: data.ime_kupca || "",
+            email_kupca: data.email_kupca || "",
+            adresa_kupca: data.adresa_kupca || "",
+            grad_kupca: data.grad_kupca || "",
+            postanski_broj_kupca: data.postanski_broj_kupca || "",
+            telefon_kupca: data.telefon_kupca || ""
+          });
+          // Also set edit token if we looked up by it, to ensure we have it for updates
+          if (token) setEditToken(token);
+        }
       }
     } catch (err: any) {
       console.error("Error fetching status:", err);
-      setError("Došlo je do greške prilikom provere statusa. Proverite ID i pokušajte ponovo.");
+      setError("Došlo je do greške prilikom provere statusa. Proverite ID/Link i pokušajte ponovo.");
     } finally {
       setLoading(false);
     }
@@ -63,7 +113,48 @@ export default function OrderTracking() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Reset token when searching manually by ID
+    setEditToken(null);
     checkStatus(orderId);
+  };
+
+  const handleUpdateOrder = async () => {
+    if (!orderData?.id || !editToken) return;
+
+    setIsUpdating(true);
+    try {
+      const { data, error } = await supabase.rpc('update_order_details', {
+        p_order_id: orderData.id,
+        p_token: editToken,
+        p_ime_kupca: editFormData.ime_kupca,
+        p_email_kupca: editFormData.email_kupca,
+        p_adresa_kupca: editFormData.adresa_kupca,
+        p_grad_kupca: editFormData.grad_kupca,
+        p_postanski_broj_kupca: editFormData.postanski_broj_kupca,
+        p_telefon_kupca: editFormData.telefon_kupca
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Uspešno izmenjeno!",
+        description: "Podaci o porudžbini su ažurirani.",
+      });
+      
+      setIsDialogOpen(false);
+      // Refresh data
+      checkStatus(orderData.order_code || orderData.id, editToken);
+
+    } catch (err: any) {
+      console.error("Update error:", err);
+      toast({
+        title: "Greška",
+        description: err.message || "Došlo je do greške prilikom izmene podataka.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const getCurrentStepIndex = () => {
@@ -190,6 +281,85 @@ export default function OrderTracking() {
                   </div>
                 </div>
               </CardContent>
+              {canEdit && (
+                <CardFooter className="flex justify-center border-t pt-6">
+                  <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="gap-2">
+                        <Edit className="h-4 w-4" />
+                        Izmeni podatke o isporuci
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>Izmena podataka</DialogTitle>
+                        <DialogDescription>
+                          Možete izmeniti podatke sve dok je porudžbina u statusu "Primljeno".
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="name">Ime i prezime</Label>
+                          <Input
+                            id="name"
+                            value={editFormData.ime_kupca}
+                            onChange={(e) => setEditFormData({ ...editFormData, ime_kupca: e.target.value })}
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="email">Email</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            value={editFormData.email_kupca}
+                            onChange={(e) => setEditFormData({ ...editFormData, email_kupca: e.target.value })}
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="phone">Telefon</Label>
+                          <Input
+                            id="phone"
+                            value={editFormData.telefon_kupca}
+                            onChange={(e) => setEditFormData({ ...editFormData, telefon_kupca: e.target.value })}
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="address">Adresa</Label>
+                          <Input
+                            id="address"
+                            value={editFormData.adresa_kupca}
+                            onChange={(e) => setEditFormData({ ...editFormData, adresa_kupca: e.target.value })}
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="grid gap-2">
+                            <Label htmlFor="city">Grad</Label>
+                            <Input
+                              id="city"
+                              value={editFormData.grad_kupca}
+                              onChange={(e) => setEditFormData({ ...editFormData, grad_kupca: e.target.value })}
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="zip">Poštanski broj</Label>
+                            <Input
+                              id="zip"
+                              value={editFormData.postanski_broj_kupca}
+                              onChange={(e) => setEditFormData({ ...editFormData, postanski_broj_kupca: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button type="submit" onClick={handleUpdateOrder} disabled={isUpdating}>
+                          {isUpdating && <Clock className="mr-2 h-4 w-4 animate-spin" />}
+                          Sačuvaj izmene
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </CardFooter>
+              )}
             </Card>
           </motion.div>
         )}
