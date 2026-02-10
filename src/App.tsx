@@ -20,6 +20,7 @@ import TermsOfService from "./pages/TermsOfService";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 
 import { HelmetProvider } from "react-helmet-async";
+import { Analytics } from "@vercel/analytics/react";
 
 const queryClient = new QueryClient();
  
@@ -42,6 +43,7 @@ const queryClient = new QueryClient();
            <Toaster />
            <Sonner />
           <CookieConsent />
+          <Analytics />
           <BrowserRouter>
              <Routes>
                <Route path="/" element={<Index />} />
