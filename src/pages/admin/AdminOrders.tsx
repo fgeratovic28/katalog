@@ -29,7 +29,8 @@ import { useAdmin } from "@/context/AdminContext";
   const filteredOrders = orders.filter((o) => {
     const matchesSearch =
       o.id.toLowerCase().includes(search.toLowerCase()) ||
-      o.ime_kupca.toLowerCase().includes(search.toLowerCase());
+      o.ime_kupca.toLowerCase().includes(search.toLowerCase()) ||
+      (o.order_code && o.order_code.toLowerCase().includes(search.toLowerCase()));
     
     const matchesStatus =
       statusFilter === "all"
@@ -148,7 +149,7 @@ import { useAdmin } from "@/context/AdminContext";
                     animate={{ opacity: 1 }}
                     className="hover:bg-secondary/30 transition-colors"
                   >
-                    <td className="px-4 py-3 font-medium text-sm">{order.id.slice(0, 8)}...</td>
+                    <td className="px-4 py-3 font-medium text-sm">{order.order_code || order.id.slice(0, 8) + '...'}</td>
                     <td className="px-4 py-3 text-sm">
                       <div>
                         <p className="font-medium">
@@ -219,7 +220,7 @@ import { useAdmin } from "@/context/AdminContext";
               className="fixed top-0 right-0 bottom-0 w-full md:w-[500px] bg-card border-l border-border z-50 overflow-y-auto"
             >
               <div className="sticky top-0 bg-card/95 backdrop-blur-sm border-b border-border p-4 flex items-center justify-between z-10">
-                <h2 className="text-lg font-semibold">Porudžbina {selectedOrder.id.slice(0, 8)}...</h2>
+                <h2 className="text-lg font-semibold">Porudžbina {selectedOrder.order_code || selectedOrder.id.slice(0, 8) + '...'}</h2>
                 <button
                   onClick={() => setSelectedOrder(null)}
                   className="p-2 hover:bg-muted rounded-full transition-colors"

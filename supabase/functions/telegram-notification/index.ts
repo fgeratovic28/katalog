@@ -1,5 +1,24 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7"
+import { serve } from "std/http/server.ts"
+import { createClient } from "@supabase/supabase-js"
+
+interface Product {
+  naziv: string;
+  slike?: string[];
+  slika_url?: string;
+  cena: number;
+}
+
+interface Variant {
+  name: string;
+  price: number;
+}
+
+interface OrderItem {
+  product: Product;
+  variant?: Variant;
+  size?: string;
+  quantity: number;
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -27,7 +46,7 @@ serve(async (req: Request) => {
 
     // 1. Get Telegram settings
     // Try to fetch from DB first
-    const { data: settingsData, error: settingsError } = await supabaseClient
+    const { data: settingsData, error: _settingsError } = await supabaseClient
       .from('admin_settings')
       .select('value')
       .eq('key', 'telegram_chat_id')
@@ -65,7 +84,7 @@ serve(async (req: Request) => {
     }
 
     const itemsList = order.artikli
-      .map((item: any) => {
+      .map((item: OrderItem) => {
         const naziv = escapeHtml(item.product.naziv);
         // Support both new 'slike' array and legacy 'slika_url'
         const imageUrl = item.product.slike?.[0] || item.product.slika_url;
@@ -83,7 +102,7 @@ serve(async (req: Request) => {
     // You might need to adjust the base URL
     const adminUrl = `${req.headers.get('origin') || 'http://localhost:5173'}/admin/orders`
 
-    const message = `📦 NOVA PORUDŽBINA #${order.id || 'N/A'}
+    const message = `📦 NOVA PORUDŽBINA #${order.order_code || order.id || 'N/A'}
 👤 Kupac: ${order.ime_kupca}
 📞 Telefon: ${order.telefon_kupca}
 📍 Adresa: ${order.adresa_kupca}, ${order.grad_kupca}
@@ -127,10 +146,11 @@ ${itemsList}
       }
     )
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error:', error)
     return new Response(
-      JSON.stringify({ error: error.message || 'Unknown error' }),
+      JSON.stringify({ error: errorMessage }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,

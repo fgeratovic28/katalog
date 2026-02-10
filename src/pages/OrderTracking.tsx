@@ -39,12 +39,12 @@ export default function OrderTracking() {
     setStatus(null);
 
     try {
-      const { data, error } = await supabase.rpc('get_order_status', { p_order_id: id });
+      const { data, error } = await supabase.rpc('get_order_status', { p_query: id });
 
       if (error) throw error;
 
       if (!data) {
-        setError("Porudžbina sa ovim ID-jem nije pronađena.");
+        setError("Porudžbina sa ovim kodom nije pronađena.");
       } else {
         // Map legacy 'novo' to 'Primljeno'
         let currentStatus = data.status;
@@ -90,7 +90,7 @@ export default function OrderTracking() {
       <div className="container mx-auto max-w-3xl">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-2">Pratite vašu porudžbinu</h1>
-          <p className="text-muted-foreground">Unesite ID porudžbine koji ste dobili na e-mail</p>
+          <p className="text-muted-foreground">Unesite kod porudžbine koji ste dobili na e-mail</p>
         </div>
 
         <Card className="mb-8">

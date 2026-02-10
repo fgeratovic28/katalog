@@ -128,10 +128,11 @@ export function CartDrawer() {
     if (!error) {
       // 1. Send confirmation email
       const orderId = orderResponse?.[0]?.id || "N/A";
-      const trackingLink = `${window.location.origin}/provera?id=${orderId}`;
+      const orderCode = orderResponse?.[0]?.order_code || orderId;
+      const trackingLink = `${window.location.origin}/provera?id=${orderCode}`;
 
       const emailParams = {
-        id_porudzbine: orderId,
+        id_porudzbine: orderCode,
         link_za_proveru: trackingLink,
         ime_butika: "Katalog",
         lista_artikala_sa_velicinama_i_cenama: items.map(item => 
@@ -175,7 +176,7 @@ export function CartDrawer() {
       // 2. Telegram notification via Edge Function
       try {
         const { error: funcError } = await supabase.functions.invoke('telegram-notification', {
-          body: { order: { ...orderData, id: orderResponse?.[0]?.id } }
+          body: { order: { ...orderData, id: orderResponse?.[0]?.id, order_code: orderResponse?.[0]?.order_code } }
         });
 
         if (funcError) throw funcError;

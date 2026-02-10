@@ -29,6 +29,7 @@ export interface CartItem {
 
 export interface Order {
   id: string;
+  order_code?: string;
   created_at: string;
   ime_kupca: string;
   email_kupca: string;
